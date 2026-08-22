@@ -232,7 +232,7 @@ export default function App() {
         onClick={() => isMyTurn && setSelectedCard(isSelected ? null : card)}
         className={`relative shrink-0 rounded-xl bg-white shadow-md border-2 transition-all cursor-pointer select-none flex flex-col items-center justify-between p-1
           ${isMobile ? 'w-12 h-16' : 'w-full h-20 xl:h-22'}
-          ${isSelected ? 'border-indigo-500 ring-4 ring-indigo-500/40 -translate-y-1.5 bg-indigo-50/95' : 'border-slate-300 hover:border-indigo-400'}
+          ${isSelected ? 'border-indigo-500 ring-4 ring-indigo-500/40 -translate-y-1 bg-indigo-50/95 shadow-indigo-500/20' : 'border-slate-300 hover:border-indigo-400'}
           ${!isMyTurn ? 'opacity-60 grayscale-[0.4] cursor-not-allowed' : ''}
         `}
       >
@@ -246,8 +246,9 @@ export default function App() {
         </div>
 
         {card.rank === 'J' ? (
-          <span className={`text-[7px] xl:text-[8px] font-black uppercase px-1 py-0.2 rounded leading-tight ${isTwoEyedJack ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-            }`}>
+          <span className={`text-[7px] xl:text-[8px] font-black uppercase px-1 py-0.2 rounded leading-tight ${
+            isTwoEyedJack ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+          }`}>
             {isTwoEyedJack ? 'Wild' : 'Remove'}
           </span>
         ) : (
@@ -325,8 +326,9 @@ export default function App() {
               className="absolute inset-0 flex items-center justify-center p-0.5 pointer-events-none"
             >
               <div
-                className={`w-3/4 h-3/4 max-w-[32px] max-h-[32px] xl:max-w-[40px] xl:max-h-[40px] rounded-full shadow-lg border-2 border-white/90 flex items-center justify-center ${cell.isLocked ? 'ring-2 ring-yellow-300 ring-offset-1 ring-offset-slate-900' : ''
-                  }`}
+                className={`w-3/4 h-3/4 max-w-[32px] max-h-[32px] xl:max-w-[40px] xl:max-h-[40px] rounded-full shadow-lg border-2 border-white/90 flex items-center justify-center ${
+                  cell.isLocked ? 'ring-2 ring-yellow-300 ring-offset-1 ring-offset-slate-900' : ''
+                }`}
                 style={{ backgroundColor: cell.chip === 'wild' ? '#94a3b8' : cell.chip }}
               >
                 {cell.isLocked && <Trophy size={12} className="text-white drop-shadow" />}
@@ -378,10 +380,11 @@ export default function App() {
                 return (
                   <div
                     key={p.playerId}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${isCurrentTurn
+                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                      isCurrentTurn
                         ? 'bg-indigo-950/60 border-indigo-500/80 shadow-md shadow-indigo-900/20'
                         : 'bg-slate-800/60 border-slate-800'
-                      } ${!p.connected ? 'opacity-50' : ''}`}
+                    } ${!p.connected ? 'opacity-50' : ''}`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="relative shrink-0">
@@ -393,8 +396,9 @@ export default function App() {
                         </div>
                         <span
                           title={p.connected ? 'Connected' : 'Offline'}
-                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${p.connected ? 'bg-emerald-500' : 'bg-slate-500'
-                            }`}
+                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${
+                            p.connected ? 'bg-emerald-500' : 'bg-slate-500'
+                          }`}
                         />
                       </div>
                       <div className="flex flex-col min-w-0">
@@ -508,8 +512,9 @@ export default function App() {
             return (
               <div
                 key={p.playerId}
-                className={`relative w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${isTurn ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-slate-900 scale-110' : 'opacity-70'
-                  }`}
+                className={`relative w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${
+                  isTurn ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-slate-900 scale-110' : 'opacity-70'
+                }`}
                 style={{ backgroundColor: p.color }}
                 title={`${p.name}${p.playerId === playerIdRef.current ? ' (You)' : ''}`}
               >
@@ -531,8 +536,9 @@ export default function App() {
             </button>
           )}
           {game.status === 'playing' && (
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${isMyTurn ? 'bg-indigo-600 text-white animate-pulse' : 'bg-slate-800 text-slate-400'
-              }`}>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+              isMyTurn ? 'bg-indigo-600 text-white animate-pulse' : 'bg-slate-800 text-slate-400'
+            }`}>
               {isMyTurn ? 'Your Turn' : `${currentPlayer?.name}'s Turn`}
             </span>
           )}
@@ -548,18 +554,44 @@ export default function App() {
       </header>
 
       {/* ========================================================================= */}
+      {/* MOBILE TOP DOCK: Hand Cards (Rendered BEFORE the board on mobile)         */}
+      {/* ========================================================================= */}
+      {me && game.status === 'playing' && (
+        <div className="lg:hidden shrink-0 px-2 py-1.5 bg-slate-900/95 backdrop-blur border-b border-slate-800 z-20">
+          <div className="flex items-center justify-between mb-1 px-1">
+            <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1">
+              Your Cards {isMyTurn && <span className="text-indigo-400 font-normal animate-pulse">(Tap to select)</span>}
+            </span>
+            <div className="flex items-center gap-2">
+              {selectedCard && (
+                <span className="text-[10px] font-mono font-bold text-indigo-300 bg-indigo-950 px-1.5 py-0.5 rounded border border-indigo-800">
+                  {selectedCard.rank}{getSuitSymbol(selectedCard.suit)}
+                </span>
+              )}
+              <span className="text-[10px] text-slate-500 font-mono">{game.deckCount} in deck</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-1.5 overflow-x-auto py-0.5 px-0.5 no-scrollbar">
+            {me.hand.map((card) => renderHandCard(card, true))}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* CENTER STAGE: 10x10 Game Board (Scaled to fill screen properly)            */}
       {/* ========================================================================= */}
       <main className="flex-1 min-h-0 min-w-0 p-1 sm:p-2 lg:p-3 flex flex-col items-center justify-center overflow-hidden relative">
         {/* Turn helper status banner on Desktop */}
         <div className="hidden lg:flex items-center justify-center mb-2 shrink-0">
           {game.status === 'playing' ? (
-            <div className={`text-xs px-4 py-1 rounded-full font-bold transition-all border ${isMyTurn
+            <div className={`text-xs px-4 py-1 rounded-full font-bold transition-all border ${
+              isMyTurn
                 ? selectedCard
                   ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-600/30'
                   : 'bg-indigo-950 text-indigo-200 border-indigo-700/60 animate-pulse'
                 : 'bg-slate-900 text-slate-400 border-slate-800'
-              }`}>
+            }`}>
               {isMyTurn
                 ? selectedCard
                   ? `Selected ${selectedCard.rank}${getSuitSymbol(selectedCard.suit)} — Click a highlighted cell on the board`
@@ -589,13 +621,13 @@ export default function App() {
           </div>
         </div>
 
-        {/* MOBILE BOARD (Square / Screen-Fit Sizing: fills mobile screen width) */}
+        {/* MOBILE BOARD (Square / Screen-Fit Sizing: fills mobile screen below cards) */}
         <div className="flex lg:hidden w-full h-full items-center justify-center min-h-0 min-w-0 p-1">
           <div
             className="bg-slate-900/95 p-1 sm:p-1.5 rounded-xl shadow-xl border border-slate-800 grid grid-cols-10 grid-rows-10 gap-0.5"
             style={{
-              width: 'min(calc(100vw - 10px), calc(100dvh - 200px))',
-              height: 'min(calc(100vw - 10px), calc(100dvh - 200px))',
+              width: 'min(calc(100vw - 10px), calc(100dvh - 165px))',
+              height: 'min(calc(100vw - 10px), calc(100dvh - 165px))',
               aspectRatio: '1 / 1',
             }}
           >
@@ -649,24 +681,6 @@ export default function App() {
           )}
         </div>
       </aside>
-
-      {/* ========================================================================= */}
-      {/* MOBILE BOTTOM DOCK: Hand Cards (Horizontal Scroll / Compact)              */}
-      {/* ========================================================================= */}
-      {me && game.status === 'playing' && (
-        <footer className="lg:hidden shrink-0 px-2.5 pt-1.5 pb-4 sm:pb-6 bg-slate-900/95 backdrop-blur border-t border-slate-800 z-20">
-          <div className="flex items-center justify-between mb-1 px-1">
-            <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1">
-              Your Cards {isMyTurn && <span className="text-indigo-400 font-normal animate-pulse">(Tap to select)</span>}
-            </span>
-            <span className="text-[10px] text-slate-500 font-mono">{game.deckCount} in deck</span>
-          </div>
-
-          <div className="flex items-center justify-center gap-1.5 overflow-x-auto py-1 px-0.5 no-scrollbar">
-            {me.hand.map((card) => renderHandCard(card, true))}
-          </div>
-        </footer>
-      )}
     </div>
   );
 }
