@@ -113,28 +113,3 @@ sequence-multiplayer/
 
 4. Open `http://localhost:3000` in your browser. Open multiple tabs or different devices on your local network to test multiplayer gameplay.
 
----
-
-## 🚢 Deployment
-
-### Deploy with Docker
-
-```bash
-# Build the production image
-docker build -t sequence-multiplayer .
-
-# Run the container
-docker run -d -p 3000:3000 -e NODE_ENV=production sequence-multiplayer
-```
-
-### Deploy on Railway / Render
-
-1. Connect your GitHub repository to [Railway](https://railway.app/) or [Render](https://render.com/).
-2. Set build and start commands:
-   - **Build Command:** `npm run build`
-   - **Start Command:** `npm start`
-   - **Environment Variables:** `NODE_ENV=production`
-3. Generate a public domain and start playing!
-
----
-
