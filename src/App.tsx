@@ -594,8 +594,8 @@ export default function App() {
           <div
             className="bg-slate-900/95 p-1 sm:p-1.5 rounded-xl shadow-xl border border-slate-800 grid grid-cols-10 grid-rows-10 gap-0.5"
             style={{
-              width: 'min(calc(100vw - 10px), calc(100dvh - 170px))',
-              height: 'min(calc(100vw - 10px), calc(100dvh - 170px))',
+              width: 'min(calc(100vw - 10px), calc(100dvh - 200px))',
+              height: 'min(calc(100vw - 10px), calc(100dvh - 200px))',
               aspectRatio: '1 / 1',
             }}
           >
