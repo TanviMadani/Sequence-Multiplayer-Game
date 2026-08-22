@@ -246,9 +246,8 @@ export default function App() {
         </div>
 
         {card.rank === 'J' ? (
-          <span className={`text-[7px] xl:text-[8px] font-black uppercase px-1 py-0.2 rounded leading-tight ${
-            isTwoEyedJack ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-          }`}>
+          <span className={`text-[7px] xl:text-[8px] font-black uppercase px-1 py-0.2 rounded leading-tight ${isTwoEyedJack ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+            }`}>
             {isTwoEyedJack ? 'Wild' : 'Remove'}
           </span>
         ) : (
@@ -326,9 +325,8 @@ export default function App() {
               className="absolute inset-0 flex items-center justify-center p-0.5 pointer-events-none"
             >
               <div
-                className={`w-3/4 h-3/4 max-w-[32px] max-h-[32px] xl:max-w-[40px] xl:max-h-[40px] rounded-full shadow-lg border-2 border-white/90 flex items-center justify-center ${
-                  cell.isLocked ? 'ring-2 ring-yellow-300 ring-offset-1 ring-offset-slate-900' : ''
-                }`}
+                className={`w-3/4 h-3/4 max-w-[32px] max-h-[32px] xl:max-w-[40px] xl:max-h-[40px] rounded-full shadow-lg border-2 border-white/90 flex items-center justify-center ${cell.isLocked ? 'ring-2 ring-yellow-300 ring-offset-1 ring-offset-slate-900' : ''
+                  }`}
                 style={{ backgroundColor: cell.chip === 'wild' ? '#94a3b8' : cell.chip }}
               >
                 {cell.isLocked && <Trophy size={12} className="text-white drop-shadow" />}
@@ -380,11 +378,10 @@ export default function App() {
                 return (
                   <div
                     key={p.playerId}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
-                      isCurrentTurn
+                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${isCurrentTurn
                         ? 'bg-indigo-950/60 border-indigo-500/80 shadow-md shadow-indigo-900/20'
                         : 'bg-slate-800/60 border-slate-800'
-                    } ${!p.connected ? 'opacity-50' : ''}`}
+                      } ${!p.connected ? 'opacity-50' : ''}`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="relative shrink-0">
@@ -396,9 +393,8 @@ export default function App() {
                         </div>
                         <span
                           title={p.connected ? 'Connected' : 'Offline'}
-                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${
-                            p.connected ? 'bg-emerald-500' : 'bg-slate-500'
-                          }`}
+                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${p.connected ? 'bg-emerald-500' : 'bg-slate-500'
+                            }`}
                         />
                       </div>
                       <div className="flex flex-col min-w-0">
@@ -512,9 +508,8 @@ export default function App() {
             return (
               <div
                 key={p.playerId}
-                className={`relative w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${
-                  isTurn ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-slate-900 scale-110' : 'opacity-70'
-                }`}
+                className={`relative w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${isTurn ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-slate-900 scale-110' : 'opacity-70'
+                  }`}
                 style={{ backgroundColor: p.color }}
                 title={`${p.name}${p.playerId === playerIdRef.current ? ' (You)' : ''}`}
               >
@@ -536,9 +531,8 @@ export default function App() {
             </button>
           )}
           {game.status === 'playing' && (
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-              isMyTurn ? 'bg-indigo-600 text-white animate-pulse' : 'bg-slate-800 text-slate-400'
-            }`}>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${isMyTurn ? 'bg-indigo-600 text-white animate-pulse' : 'bg-slate-800 text-slate-400'
+              }`}>
               {isMyTurn ? 'Your Turn' : `${currentPlayer?.name}'s Turn`}
             </span>
           )}
@@ -560,13 +554,12 @@ export default function App() {
         {/* Turn helper status banner on Desktop */}
         <div className="hidden lg:flex items-center justify-center mb-2 shrink-0">
           {game.status === 'playing' ? (
-            <div className={`text-xs px-4 py-1 rounded-full font-bold transition-all border ${
-              isMyTurn
+            <div className={`text-xs px-4 py-1 rounded-full font-bold transition-all border ${isMyTurn
                 ? selectedCard
                   ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-600/30'
                   : 'bg-indigo-950 text-indigo-200 border-indigo-700/60 animate-pulse'
                 : 'bg-slate-900 text-slate-400 border-slate-800'
-            }`}>
+              }`}>
               {isMyTurn
                 ? selectedCard
                   ? `Selected ${selectedCard.rank}${getSuitSymbol(selectedCard.suit)} — Click a highlighted cell on the board`
