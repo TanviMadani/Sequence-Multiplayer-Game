@@ -2,6 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import { Server, Socket } from "socket.io";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GameState, Player, createDeck } from "./src/types";
 import { createInitialBoard, checkSequences, toClientState, pickAvailableColor } from "./src/logic";
@@ -343,7 +344,11 @@ async function startServer() {
     });
   });
 
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction =
+    process.env.NODE_ENV === "production" ||
+    (process.env.NODE_ENV !== "development" && fs.existsSync(path.join(process.cwd(), "dist", "index.html")));
+
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true, hmr: { server: httpServer } },
       appType: "spa",
