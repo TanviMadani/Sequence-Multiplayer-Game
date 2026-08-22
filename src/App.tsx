@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { ClientGameState, Card } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Play, RotateCcw, Trophy, User, ChevronRight, Copy, Check, SkipForward, WifiOff, Sparkles, Layers, ShieldAlert } from 'lucide-react';
+import { Users, Play, RotateCcw, Trophy, ChevronRight, Copy, Check, SkipForward, WifiOff, Layers } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const PLAYER_ID_KEY = 'sequence.playerId';
@@ -230,33 +230,112 @@ export default function App() {
         whileHover={isMyTurn ? { scale: 1.05 } : {}}
         whileTap={isMyTurn ? { scale: 0.95 } : {}}
         onClick={() => isMyTurn && setSelectedCard(isSelected ? null : card)}
-        className={`relative shrink-0 rounded-xl bg-white shadow-md border-2 transition-all cursor-pointer select-none flex flex-col items-center justify-between p-1.5
-          ${isMobile ? 'w-14 h-20' : 'w-full h-24 lg:h-28 xl:h-32'}
-          ${isSelected ? 'border-indigo-500 ring-4 ring-indigo-500/40 -translate-y-2 bg-indigo-50/90' : 'border-slate-300 hover:border-indigo-400'}
+        className={`relative shrink-0 rounded-xl bg-white shadow-md border-2 transition-all cursor-pointer select-none flex flex-col items-center justify-between p-1
+          ${isMobile ? 'w-12 h-16' : 'w-full h-20 xl:h-22'}
+          ${isSelected ? 'border-indigo-500 ring-4 ring-indigo-500/40 -translate-y-1.5 bg-indigo-50/95' : 'border-slate-300 hover:border-indigo-400'}
           ${!isMyTurn ? 'opacity-60 grayscale-[0.4] cursor-not-allowed' : ''}
         `}
       >
         <div className="w-full flex items-center justify-between px-1">
-          <span className={`text-xs sm:text-sm font-black ${getSuitColor(card.suit)}`}>{card.rank}</span>
-          <span className={`text-xs sm:text-sm font-bold ${getSuitColor(card.suit)}`}>{getSuitSymbol(card.suit)}</span>
+          <span className={`text-xs font-black ${getSuitColor(card.suit)}`}>{card.rank}</span>
+          <span className={`text-xs font-bold ${getSuitColor(card.suit)}`}>{getSuitSymbol(card.suit)}</span>
         </div>
 
-        <div className={`text-xl sm:text-2xl md:text-3xl leading-none font-bold ${getSuitColor(card.suit)}`}>
+        <div className={`text-lg xl:text-2xl leading-none font-bold ${getSuitColor(card.suit)}`}>
           {getSuitSymbol(card.suit)}
         </div>
 
         {card.rank === 'J' ? (
-          <span className={`text-[8px] font-black uppercase px-1 py-0.5 rounded leading-none ${
+          <span className={`text-[7px] xl:text-[8px] font-black uppercase px-1 py-0.2 rounded leading-tight ${
             isTwoEyedJack ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
           }`}>
             {isTwoEyedJack ? 'Wild' : 'Remove'}
           </span>
         ) : (
           <div className="w-full flex items-center justify-between px-1 rotate-180">
-            <span className={`text-xs sm:text-sm font-black ${getSuitColor(card.suit)}`}>{card.rank}</span>
-            <span className={`text-xs sm:text-sm font-bold ${getSuitColor(card.suit)}`}>{getSuitSymbol(card.suit)}</span>
+            <span className={`text-[10px] font-black ${getSuitColor(card.suit)}`}>{card.rank}</span>
+            <span className={`text-[10px] font-bold ${getSuitColor(card.suit)}`}>{getSuitSymbol(card.suit)}</span>
           </div>
         )}
+      </motion.div>
+    );
+  };
+
+  // Helper for rendering a board cell
+  const renderCell = (cell: (typeof game.board)[0][0], rIdx: number, cIdx: number, isDesktop = true) => {
+    const isPossible = !!(isMyTurn && selectedCard && (
+      (selectedCard.rank === 'J' && (selectedCard.suit === 'C' || selectedCard.suit === 'D') && !cell.chip && cell.card) || // 2-eyed Jack
+      (selectedCard.rank === 'J' && (selectedCard.suit === 'H' || selectedCard.suit === 'S') && cell.chip && cell.chip !== 'wild' && cell.chip !== me?.color && !cell.isLocked) || // 1-eyed Jack
+      (!cell.chip && cell.card && cell.card.rank === selectedCard.rank && cell.card.suit === selectedCard.suit) // Normal card
+    ));
+
+    const isLastMove = game.lastMove?.row === rIdx && game.lastMove?.col === cIdx;
+    const isCorner = !cell.card;
+
+    return (
+      <motion.div
+        key={`${rIdx}-${cIdx}`}
+        whileHover={isPossible ? { scale: 1.08, zIndex: 30 } : {}}
+        onClick={() => isPossible && playCard(rIdx, cIdx)}
+        className={`relative w-full h-full rounded sm:rounded-md flex items-center justify-center select-none font-bold transition-all cursor-default overflow-hidden
+          ${isCorner ? 'bg-gradient-to-br from-amber-500/20 to-slate-800 text-amber-400 border border-amber-500/30' : 'bg-slate-100 text-slate-900'}
+          ${isPossible ? 'ring-2 sm:ring-4 ring-indigo-400 bg-indigo-50 cursor-pointer z-10 shadow-lg shadow-indigo-500/50' : ''}
+          ${isLastMove ? 'ring-2 ring-yellow-400 shadow-md' : ''}
+        `}
+      >
+        {isDesktop ? (
+          /* Desktop Cell Layout: Wide Landscape Tile */
+          <div className="flex items-center justify-center gap-1.5 w-full h-full px-1">
+            {cell.card ? (
+              <>
+                <span className={`text-xs md:text-sm xl:text-base font-black leading-none ${getSuitColor(cell.card.suit)}`}>
+                  {cell.card.rank}
+                </span>
+                <span className={`text-sm md:text-base xl:text-lg font-bold leading-none ${getSuitColor(cell.card.suit)}`}>
+                  {getSuitSymbol(cell.card.suit)}
+                </span>
+              </>
+            ) : (
+              <div className="text-amber-400 text-sm xl:text-base font-black opacity-80">★</div>
+            )}
+          </div>
+        ) : (
+          /* Mobile Cell Layout: Clean Square Tile */
+          <div className="flex flex-col items-center justify-center w-full h-full leading-none gap-0.5">
+            {cell.card ? (
+              <>
+                <span className={`text-[10px] sm:text-xs font-black ${getSuitColor(cell.card.suit)}`}>
+                  {cell.card.rank}
+                </span>
+                <span className={`text-[11px] sm:text-xs font-bold ${getSuitColor(cell.card.suit)}`}>
+                  {getSuitSymbol(cell.card.suit)}
+                </span>
+              </>
+            ) : (
+              <div className="text-amber-400 text-xs sm:text-sm font-black opacity-80">★</div>
+            )}
+          </div>
+        )}
+
+        {/* Chip Overlay */}
+        <AnimatePresence>
+          {cell.chip && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="absolute inset-0 flex items-center justify-center p-0.5 pointer-events-none"
+            >
+              <div
+                className={`w-3/4 h-3/4 max-w-[32px] max-h-[32px] xl:max-w-[40px] xl:max-h-[40px] rounded-full shadow-lg border-2 border-white/90 flex items-center justify-center ${
+                  cell.isLocked ? 'ring-2 ring-yellow-300 ring-offset-1 ring-offset-slate-900' : ''
+                }`}
+                style={{ backgroundColor: cell.chip === 'wild' ? '#94a3b8' : cell.chip }}
+              >
+                {cell.isLocked && <Trophy size={12} className="text-white drop-shadow" />}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   };
@@ -269,7 +348,7 @@ export default function App() {
       {/* DESKTOP LEFT SIDEBAR: Room info, Players, Actions                         */}
       {/* ========================================================================= */}
       <aside className="hidden lg:flex w-72 xl:w-80 h-full p-4 flex-col justify-between shrink-0 bg-slate-900/90 backdrop-blur-md border-r border-slate-800 overflow-y-auto z-20">
-        <div className="space-y-5">
+        <div className="space-y-4">
           {/* Logo & Room Bar */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div className="flex items-center gap-2">
@@ -290,7 +369,7 @@ export default function App() {
 
           {/* Players List */}
           <div>
-            <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">
               <span className="flex items-center gap-1.5"><Users size={14} /> Players</span>
               <span className="text-indigo-400 font-mono">({game.players.length}/4)</span>
             </div>
@@ -475,9 +554,9 @@ export default function App() {
       </header>
 
       {/* ========================================================================= */}
-      {/* CENTER STAGE: 10x10 Game Board (Landscape on desktop, Vertical on mobile)  */}
+      {/* CENTER STAGE: 10x10 Game Board (Scaled to fill screen properly)            */}
       {/* ========================================================================= */}
-      <main className="flex-1 min-h-0 min-w-0 p-2 sm:p-3 lg:p-4 flex flex-col items-center justify-center overflow-hidden relative">
+      <main className="flex-1 min-h-0 min-w-0 p-1 sm:p-2 lg:p-3 flex flex-col items-center justify-center overflow-hidden relative">
         {/* Turn helper status banner on Desktop */}
         <div className="hidden lg:flex items-center justify-center mb-2 shrink-0">
           {game.status === 'playing' ? (
@@ -501,100 +580,35 @@ export default function App() {
           ) : null}
         </div>
 
-        {/* Board Container */}
-        <div className="w-full h-full flex items-center justify-center max-w-full max-h-full">
-          {/*
-            Board Aspect Ratio:
-            - Desktop (lg:): Landscape board (aspect-[1.25/1]), with cells designed horizontally
-            - Mobile (<lg): Vertical board (aspect-[0.78/1]), with cells designed vertically
-          */}
-          <div className="w-full h-full max-w-full max-h-full flex items-center justify-center p-1">
-            <div
-              className="bg-slate-900/95 p-1.5 sm:p-2 md:p-2.5 rounded-2xl shadow-2xl border border-slate-800 grid grid-cols-10 grid-rows-10 gap-0.5 sm:gap-1 transition-all"
-              style={{
-                aspectRatio: typeof window !== 'undefined' && window.innerWidth >= 1024 ? '1.25 / 1' : '0.78 / 1',
-                maxHeight: '100%',
-                maxWidth: '100%',
-              }}
-            >
-              {game.board.map((row, rIdx) => (
-                row.map((cell, cIdx) => {
-                  const isPossible = !!(isMyTurn && selectedCard && (
-                    (selectedCard.rank === 'J' && (selectedCard.suit === 'C' || selectedCard.suit === 'D') && !cell.chip && cell.card) || // 2-eyed Jack
-                    (selectedCard.rank === 'J' && (selectedCard.suit === 'H' || selectedCard.suit === 'S') && cell.chip && cell.chip !== 'wild' && cell.chip !== me?.color && !cell.isLocked) || // 1-eyed Jack
-                    (!cell.chip && cell.card && cell.card.rank === selectedCard.rank && cell.card.suit === selectedCard.suit) // Normal card
-                  ));
+        {/* DESKTOP BOARD (Landscape Sizing: fills available center stage height/width) */}
+        <div className="hidden lg:flex w-full h-full items-center justify-center min-h-0 min-w-0">
+          <div
+            className="bg-slate-900/95 p-2 xl:p-3 rounded-2xl shadow-2xl border border-slate-800 grid grid-cols-10 grid-rows-10 gap-1 xl:gap-1.5"
+            style={{
+              width: 'min(calc(100% - 16px), calc((100vh - 76px) * 1.22))',
+              height: 'min(calc(100vh - 76px), calc((100% - 16px) / 1.22))',
+              aspectRatio: '1.22 / 1',
+            }}
+          >
+            {game.board.map((row, rIdx) =>
+              row.map((cell, cIdx) => renderCell(cell, rIdx, cIdx, true))
+            )}
+          </div>
+        </div>
 
-                  const isLastMove = game.lastMove?.row === rIdx && game.lastMove?.col === cIdx;
-                  const isCorner = !cell.card;
-
-                  return (
-                    <motion.div
-                      key={`${rIdx}-${cIdx}`}
-                      whileHover={isPossible ? { scale: 1.08, zIndex: 30 } : {}}
-                      onClick={() => isPossible && playCard(rIdx, cIdx)}
-                      className={`relative w-full h-full rounded-sm sm:rounded flex items-center justify-center select-none font-bold transition-all cursor-default overflow-hidden
-                        ${isCorner ? 'bg-gradient-to-br from-amber-500/20 to-slate-800 text-amber-400 border border-amber-500/30' : 'bg-slate-100 text-slate-900'}
-                        ${isPossible ? 'ring-2 sm:ring-4 ring-indigo-400 bg-indigo-50 cursor-pointer z-10 shadow-lg shadow-indigo-500/50' : ''}
-                        ${isLastMove ? 'ring-2 ring-yellow-400 shadow-md' : ''}
-                      `}
-                    >
-                      {/* Desktop Cell Layout: Horizontal / Landscape */}
-                      <div className="hidden lg:flex items-center justify-center gap-1 w-full h-full px-0.5">
-                        {cell.card ? (
-                          <>
-                            <span className={`text-[11px] xl:text-sm font-black leading-none ${getSuitColor(cell.card.suit)}`}>
-                              {cell.card.rank}
-                            </span>
-                            <span className={`text-xs xl:text-base font-bold leading-none ${getSuitColor(cell.card.suit)}`}>
-                              {getSuitSymbol(cell.card.suit)}
-                            </span>
-                          </>
-                        ) : (
-                          <div className="text-amber-400 text-xs xl:text-sm font-black opacity-80">★</div>
-                        )}
-                      </div>
-
-                      {/* Mobile Cell Layout: Vertical / Portrait */}
-                      <div className="flex lg:hidden flex-col items-center justify-center w-full h-full leading-none">
-                        {cell.card ? (
-                          <>
-                            <span className={`text-[9px] sm:text-[11px] font-black ${getSuitColor(cell.card.suit)}`}>
-                              {cell.card.rank}
-                            </span>
-                            <span className={`text-[9px] sm:text-[11px] font-bold ${getSuitColor(cell.card.suit)}`}>
-                              {getSuitSymbol(cell.card.suit)}
-                            </span>
-                          </>
-                        ) : (
-                          <div className="text-amber-400 text-[10px] sm:text-xs font-black opacity-80">★</div>
-                        )}
-                      </div>
-
-                      {/* Chip Overlay */}
-                      <AnimatePresence>
-                        {cell.chip && (
-                          <motion.div
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            className="absolute inset-0 flex items-center justify-center p-0.5 pointer-events-none"
-                          >
-                            <div
-                              className={`w-3/4 h-3/4 max-w-[28px] max-h-[28px] lg:max-w-[34px] lg:max-h-[34px] rounded-full shadow-lg border-2 border-white/80 flex items-center justify-center ${
-                                cell.isLocked ? 'ring-2 ring-yellow-300 ring-offset-1 ring-offset-slate-900' : ''
-                              }`}
-                              style={{ backgroundColor: cell.chip === 'wild' ? '#94a3b8' : cell.chip }}
-                            >
-                              {cell.isLocked && <Trophy size={10} className="text-white drop-shadow" />}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  );
-                })
-              ))}
-            </div>
+        {/* MOBILE BOARD (Square / Screen-Fit Sizing: fills mobile screen width) */}
+        <div className="flex lg:hidden w-full h-full items-center justify-center min-h-0 min-w-0 p-1">
+          <div
+            className="bg-slate-900/95 p-1 sm:p-1.5 rounded-xl shadow-xl border border-slate-800 grid grid-cols-10 grid-rows-10 gap-0.5"
+            style={{
+              width: 'min(calc(100vw - 10px), calc(100dvh - 150px))',
+              height: 'min(calc(100vw - 10px), calc(100dvh - 150px))',
+              aspectRatio: '1 / 1',
+            }}
+          >
+            {game.board.map((row, rIdx) =>
+              row.map((cell, cIdx) => renderCell(cell, rIdx, cIdx, false))
+            )}
           </div>
         </div>
       </main>
@@ -603,8 +617,8 @@ export default function App() {
       {/* DESKTOP RIGHT SIDEBAR: "Your Hand" Cards Dock                             */}
       {/* ========================================================================= */}
       <aside className="hidden lg:flex w-64 xl:w-72 h-full p-4 flex-col justify-between shrink-0 bg-slate-900/90 backdrop-blur-md border-l border-slate-800 overflow-y-auto z-20">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
             <div>
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Hand</h3>
               <p className="text-[11px] text-slate-500 font-medium">
@@ -612,7 +626,7 @@ export default function App() {
               </p>
             </div>
             {isMyTurn && (
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500 text-white animate-pulse shadow-md shadow-indigo-500/30">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500 text-white animate-pulse shadow-md shadow-indigo-500/30">
                 YOUR TURN
               </span>
             )}
@@ -620,7 +634,7 @@ export default function App() {
 
           {/* Cards Grid */}
           {me && game.status === 'playing' ? (
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-2">
               {me.hand.map((card) => renderHandCard(card, false))}
             </div>
           ) : (
@@ -631,8 +645,8 @@ export default function App() {
         </div>
 
         {/* Hand Footer helper */}
-        <div className="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-          <span>Selected Card:</span>
+        <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+          <span>Selected:</span>
           {selectedCard ? (
             <span className="font-bold text-indigo-300 font-mono bg-indigo-950 px-2 py-0.5 rounded border border-indigo-800">
               {selectedCard.rank}{getSuitSymbol(selectedCard.suit)}
@@ -647,15 +661,15 @@ export default function App() {
       {/* MOBILE BOTTOM DOCK: Hand Cards (Horizontal Scroll / Compact)              */}
       {/* ========================================================================= */}
       {me && game.status === 'playing' && (
-        <footer className="lg:hidden shrink-0 px-2.5 py-2 bg-slate-900/95 backdrop-blur border-t border-slate-800 z-20">
-          <div className="flex items-center justify-between mb-1.5 px-1">
-            <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+        <footer className="lg:hidden shrink-0 px-2 py-1.5 bg-slate-900/95 backdrop-blur border-t border-slate-800 z-20">
+          <div className="flex items-center justify-between mb-1 px-1">
+            <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1">
               Your Cards {isMyTurn && <span className="text-indigo-400 font-normal animate-pulse">(Tap to select)</span>}
             </span>
             <span className="text-[10px] text-slate-500 font-mono">{game.deckCount} in deck</span>
           </div>
 
-          <div className="flex items-center justify-center gap-2 overflow-x-auto py-1 px-1 no-scrollbar">
+          <div className="flex items-center justify-center gap-1.5 overflow-x-auto py-0.5 px-0.5 no-scrollbar">
             {me.hand.map((card) => renderHandCard(card, true))}
           </div>
         </footer>
