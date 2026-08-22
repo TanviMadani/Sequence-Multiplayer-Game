@@ -594,8 +594,8 @@ export default function App() {
           <div
             className="bg-slate-900/95 p-1 sm:p-1.5 rounded-xl shadow-xl border border-slate-800 grid grid-cols-10 grid-rows-10 gap-0.5"
             style={{
-              width: 'min(calc(100vw - 10px), calc(100dvh - 150px))',
-              height: 'min(calc(100vw - 10px), calc(100dvh - 150px))',
+              width: 'min(calc(100vw - 10px), calc(100dvh - 170px))',
+              height: 'min(calc(100vw - 10px), calc(100dvh - 170px))',
               aspectRatio: '1 / 1',
             }}
           >
@@ -654,7 +654,7 @@ export default function App() {
       {/* MOBILE BOTTOM DOCK: Hand Cards (Horizontal Scroll / Compact)              */}
       {/* ========================================================================= */}
       {me && game.status === 'playing' && (
-        <footer className="lg:hidden shrink-0 px-2 py-1.5 bg-slate-900/95 backdrop-blur border-t border-slate-800 z-20">
+        <footer className="lg:hidden shrink-0 px-2.5 pt-1.5 pb-4 sm:pb-6 bg-slate-900/95 backdrop-blur border-t border-slate-800 z-20">
           <div className="flex items-center justify-between mb-1 px-1">
             <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1">
               Your Cards {isMyTurn && <span className="text-indigo-400 font-normal animate-pulse">(Tap to select)</span>}
@@ -662,7 +662,7 @@ export default function App() {
             <span className="text-[10px] text-slate-500 font-mono">{game.deckCount} in deck</span>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 overflow-x-auto py-0.5 px-0.5 no-scrollbar">
+          <div className="flex items-center justify-center gap-1.5 overflow-x-auto py-1 px-0.5 no-scrollbar">
             {me.hand.map((card) => renderHandCard(card, true))}
           </div>
         </footer>

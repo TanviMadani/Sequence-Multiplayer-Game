@@ -138,6 +138,3 @@ docker run -d -p 3000:3000 -e NODE_ENV=production sequence-multiplayer
 
 ---
 
-## 📄 License
-
-This project is open source and available under the [MIT License](LICENSE).
