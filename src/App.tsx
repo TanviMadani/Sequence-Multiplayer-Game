@@ -1,12 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { ClientGameState, Card } from './types';
+import { ClientGameState, Card, PlayerProfile } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Play, RotateCcw, Trophy, ChevronRight, Copy, Check, SkipForward, WifiOff, Layers } from 'lucide-react';
+import { Users, Play, RotateCcw, Trophy, ChevronRight, Copy, Check, SkipForward, WifiOff, Layers, Clock, Flag, Scissors, Coins, User, Undo2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { GameOverModal } from './components/GameOverModal';
+import { ConfirmModal } from './components/ConfirmModal';
+import { ProfileModal } from './components/ProfileModal';
+import { AchievementToast } from './components/AchievementToast';
+import { isWinningCell, getSequenceOrder, WinningSequenceBadge } from './components/WinningSequenceHighlight';
+import { AchievementDef } from './constants/rewards';
 
 const PLAYER_ID_KEY = 'sequence.playerId';
 const PLAYER_NAME_KEY = 'sequence.playerName';
+const LAST_ROOM_KEY = 'sequence.lastRoomId';
 
 function getOrCreatePlayerId(): string {
   try {
@@ -28,6 +35,14 @@ function getStoredName(): string {
   }
 }
 
+function getStoredRoom(): string {
+  try {
+    return localStorage.getItem(LAST_ROOM_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
 function getRoomFromUrl(): string {
   try {
     return new URLSearchParams(window.location.search).get('room') || '';
@@ -40,26 +55,70 @@ const socket: Socket = io();
 
 export default function App() {
   const playerIdRef = useRef<string>(getOrCreatePlayerId());
-  const [roomId, setRoomId] = useState(getRoomFromUrl());
+  const processedFinishRef = useRef<boolean>(false);
+  const [roomId, setRoomId] = useState(getRoomFromUrl() || getStoredRoom());
   const [playerName, setPlayerName] = useState(getStoredName());
   const [inRoom, setInRoom] = useState(false);
   const [game, setGame] = useState<ClientGameState | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showSurrenderModal, setShowSurrenderModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [unlockedToast, setUnlockedToast] = useState<AchievementDef | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [undoCountdown, setUndoCountdown] = useState<number | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(cur => (cur === msg ? null : cur)), 4000);
   }, []);
 
+  // Auto-reconnect on mount & request profile
+  useEffect(() => {
+    socket.emit('get-profile', playerIdRef.current);
+    const initialRoom = getRoomFromUrl() || getStoredRoom();
+    const name = getStoredName();
+    if (initialRoom && name) {
+      socket.emit('join-room', {
+        roomId: initialRoom,
+        playerName: name,
+        playerId: playerIdRef.current,
+      });
+      setInRoom(true);
+    }
+  }, []);
+
   useEffect(() => {
     socket.on('game-updated', (updatedGame: ClientGameState) => {
       setGame(updatedGame);
       setInRoom(true);
-      if (updatedGame.status === 'finished' && updatedGame.winner) {
-        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+      try {
+        localStorage.setItem(LAST_ROOM_KEY, updatedGame.roomId);
+      } catch {
+        /* ignore */
       }
+
+      if (updatedGame.status === 'finished' && updatedGame.winner) {
+        if (!processedFinishRef.current) {
+          processedFinishRef.current = true;
+          confetti({ particleCount: 180, spread: 80, origin: { y: 0.6 } });
+        }
+      } else if (updatedGame.status === 'playing' || updatedGame.status === 'waiting') {
+        processedFinishRef.current = false;
+      }
+    });
+
+    socket.on('profile-updated', ({ profile: updatedProfile, newlyUnlocked }: { profile: PlayerProfile; newlyUnlocked?: AchievementDef[] }) => {
+      setProfile(updatedProfile);
+      if (newlyUnlocked && newlyUnlocked.length > 0) {
+        setUnlockedToast(newlyUnlocked[0]);
+      }
+    });
+
+    socket.on('toast-message', (msg: string) => {
+      showToast(msg);
     });
 
     socket.on('error', (msg: string) => {
@@ -69,9 +128,51 @@ export default function App() {
 
     return () => {
       socket.off('game-updated');
+      socket.off('profile-updated');
+      socket.off('toast-message');
       socket.off('error');
     };
   }, [showToast]);
+
+  // Turn Timer countdown tick
+  useEffect(() => {
+    if (!game || game.status !== 'playing' || !game.turnDeadline) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.ceil((game.turnDeadline! - Date.now()) / 1000));
+      setTimeRemaining(remaining);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 500);
+    return () => clearInterval(interval);
+  }, [game?.turnDeadline, game?.status]);
+
+  // 2-Second Undo timer countdown tick
+  const isUndoAvailable = game?.undoAvailableForPlayerId === playerIdRef.current && !!game?.undoDeadline;
+
+  useEffect(() => {
+    if (!isUndoAvailable || !game?.undoDeadline) {
+      setUndoCountdown(null);
+      return;
+    }
+
+    const updateUndoTimer = () => {
+      const remainingMs = game.undoDeadline! - Date.now();
+      if (remainingMs <= 0) {
+        setUndoCountdown(null);
+      } else {
+        setUndoCountdown(Math.ceil(remainingMs / 1000));
+      }
+    };
+
+    updateUndoTimer();
+    const interval = setInterval(updateUndoTimer, 200);
+    return () => clearInterval(interval);
+  }, [isUndoAvailable, game?.undoDeadline]);
 
   const joinRoom = () => {
     const trimmedRoom = roomId.trim();
@@ -79,6 +180,7 @@ export default function App() {
     if (!trimmedRoom || !trimmedName) return;
     try {
       localStorage.setItem(PLAYER_NAME_KEY, trimmedName);
+      localStorage.setItem(LAST_ROOM_KEY, trimmedRoom);
     } catch {
       /* ignore */
     }
@@ -103,7 +205,7 @@ export default function App() {
   };
 
   const playCard = (row: number, col: number) => {
-    if (game && selectedCard) {
+    if (game && game.status === 'playing' && selectedCard) {
       socket.emit('play-card', {
         roomId: game.roomId,
         cardId: selectedCard.id,
@@ -112,6 +214,41 @@ export default function App() {
       });
       setSelectedCard(null);
     }
+  };
+
+  const handleRematch = () => {
+    if (game) socket.emit('vote-rematch', game.roomId);
+  };
+
+  const handleNewGame = () => {
+    restartGame();
+  };
+
+  const handleSurrender = () => {
+    if (game) socket.emit('surrender-game', game.roomId);
+    setShowSurrenderModal(false);
+  };
+
+  const handleUndoMove = () => {
+    if (game) socket.emit('undo-move', game.roomId);
+  };
+
+  const handleClaimDailyBonus = () => {
+    socket.emit('claim-daily-bonus', playerIdRef.current);
+  };
+
+  const handleLeaveLobby = () => {
+    try {
+      localStorage.removeItem(LAST_ROOM_KEY);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('room');
+      window.history.pushState({}, '', url.toString());
+    } catch {
+      /* ignore */
+    }
+    setInRoom(false);
+    setGame(null);
+    setRoomId('');
   };
 
   const copyInviteLink = async () => {
@@ -214,7 +351,7 @@ export default function App() {
   }
 
   const currentPlayer = game.players[game.turnIndex];
-  const isMyTurn = currentPlayer?.playerId === playerIdRef.current;
+  const isMyTurn = game.status === 'playing' && currentPlayer?.playerId === playerIdRef.current;
   const me = game.players.find(p => p.playerId === playerIdRef.current);
   const currentTurnDisconnected = game.status === 'playing' && currentPlayer && !currentPlayer.connected;
 
@@ -263,26 +400,43 @@ export default function App() {
 
   // Helper for rendering a board cell
   const renderCell = (cell: (typeof game.board)[0][0], rIdx: number, cIdx: number, isDesktop = true) => {
-    const isPossible = !!(isMyTurn && selectedCard && (
+    const isWinCell = isWinningCell(rIdx, cIdx, game.winningCells);
+    const seqOrder = getSequenceOrder(rIdx, cIdx, game.winningSequences);
+
+    const isPossible = !!(game.status === 'playing' && isMyTurn && selectedCard && (
       (selectedCard.rank === 'J' && (selectedCard.suit === 'C' || selectedCard.suit === 'D') && !cell.chip && cell.card) || // 2-eyed Jack
       (selectedCard.rank === 'J' && (selectedCard.suit === 'H' || selectedCard.suit === 'S') && cell.chip && cell.chip !== 'wild' && cell.chip !== me?.color && !cell.isLocked) || // 1-eyed Jack
       (!cell.chip && cell.card && cell.card.rank === selectedCard.rank && cell.card.suit === selectedCard.suit) // Normal card
     ));
 
+    const isRemoveTarget = isPossible && selectedCard?.rank === 'J' && (selectedCard?.suit === 'H' || selectedCard?.suit === 'S');
+
     const isLastMove = game.lastMove?.row === rIdx && game.lastMove?.col === cIdx;
+    const isRemoveMove = isLastMove && game.lastMove?.type === 'remove';
     const isCorner = !cell.card;
 
     return (
       <motion.div
         key={`${rIdx}-${cIdx}`}
+        animate={isWinCell ? { scale: [1, 1.06, 1] } : {}}
+        transition={isWinCell ? { duration: 1.8, repeat: Infinity, delay: seqOrder * 0.12, ease: "easeInOut" } : {}}
         whileHover={isPossible ? { scale: 1.08, zIndex: 30 } : {}}
         onClick={() => isPossible && playCard(rIdx, cIdx)}
         className={`relative w-full h-full rounded sm:rounded-md flex items-center justify-center select-none font-bold transition-all cursor-default overflow-hidden
           ${isCorner ? 'bg-gradient-to-br from-amber-500/20 to-slate-800 text-amber-400 border border-amber-500/30' : 'bg-slate-100 text-slate-900'}
-          ${isPossible ? 'ring-2 sm:ring-4 ring-indigo-400 bg-indigo-50 cursor-pointer z-10 shadow-lg shadow-indigo-500/50' : ''}
-          ${isLastMove ? 'ring-2 ring-yellow-400 shadow-md' : ''}
+          ${isWinCell ? 'ring-4 ring-amber-400 border-amber-300 shadow-[0_0_20px_rgba(251,191,36,0.9)] z-20' : ''}
+          ${isPossible ? (isRemoveTarget ? 'ring-4 ring-rose-500 bg-rose-50/80 cursor-pointer z-20 shadow-lg shadow-rose-500/50 animate-pulse' : 'ring-4 ring-emerald-400 bg-emerald-50/80 cursor-pointer z-20 shadow-lg shadow-emerald-500/50 animate-pulse') : ''}
+          ${isLastMove && !isWinCell ? (isRemoveMove ? 'ring-4 ring-rose-500 border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.8)] z-10' : 'ring-4 ring-amber-400 border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.8)] z-10') : ''}
         `}
       >
+        {isWinCell && <WinningSequenceBadge order={seqOrder} />}
+
+        {isLastMove && isRemoveMove && !isWinCell && (
+          <div className="absolute top-0.5 right-0.5 text-rose-500 z-20" title="Chip Removed">
+            <Scissors size={10} className="animate-bounce" />
+          </div>
+        )}
+
         {isDesktop ? (
           /* Desktop Cell Layout: Wide Landscape Tile */
           <div className="flex items-center justify-center gap-1.5 w-full h-full px-1">
@@ -327,11 +481,15 @@ export default function App() {
             >
               <div
                 className={`w-3/4 h-3/4 max-w-[32px] max-h-[32px] xl:max-w-[40px] xl:max-h-[40px] rounded-full shadow-lg border-2 border-white/90 flex items-center justify-center ${
-                  cell.isLocked ? 'ring-2 ring-yellow-300 ring-offset-1 ring-offset-slate-900' : ''
+                  isWinCell
+                    ? 'ring-4 ring-amber-300 ring-offset-2 ring-offset-slate-900 shadow-amber-400/50'
+                    : cell.isLocked
+                    ? 'ring-2 ring-yellow-300 ring-offset-1 ring-offset-slate-900'
+                    : ''
                 }`}
                 style={{ backgroundColor: cell.chip === 'wild' ? '#94a3b8' : cell.chip }}
               >
-                {cell.isLocked && <Trophy size={12} className="text-white drop-shadow" />}
+                {(cell.isLocked || isWinCell) && <Trophy size={12} className="text-white drop-shadow" />}
               </div>
             </motion.div>
           )}
@@ -343,6 +501,41 @@ export default function App() {
   return (
     <div className="h-screen h-[100dvh] w-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-col lg:flex-row select-none">
       <Toast />
+
+      {/* Surrender Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showSurrenderModal}
+        title="Surrender Match?"
+        message="Are you sure you want to surrender this match? Your opponent(s) will be declared the victors."
+        confirmText="Surrender Match"
+        cancelText="Keep Playing"
+        onConfirm={handleSurrender}
+        onCancel={() => setShowSurrenderModal(false)}
+      />
+
+      {/* Player Profile & Statistics Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        profile={profile}
+        onClaimDailyBonus={handleClaimDailyBonus}
+      />
+
+      {/* Achievement Unlocked Notification Toast */}
+      <AchievementToast
+        achievement={unlockedToast}
+        onClose={() => setUnlockedToast(null)}
+      />
+
+      {/* Game Over Congratulations Modal */}
+      {game.status === 'finished' && game.winner && (
+        <GameOverModal
+          game={game}
+          onRematch={handleRematch}
+          onNewGame={handleNewGame}
+          onLeaveLobby={handleLeaveLobby}
+        />
+      )}
 
       {/* ========================================================================= */}
       {/* DESKTOP LEFT SIDEBAR: Room info, Players, Actions                         */}
@@ -367,6 +560,38 @@ export default function App() {
             </button>
           </div>
 
+          {/* Profile & Coins Bar */}
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl">
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className="flex items-center gap-2 text-xs font-bold text-slate-200 hover:text-indigo-300 transition-colors cursor-pointer"
+            >
+              <User size={15} className="text-indigo-400" />
+              <span className="truncate max-w-[110px]">{profile?.name || playerName || 'Profile'}</span>
+            </button>
+            <div
+              onClick={() => setShowProfileModal(true)}
+              className="flex items-center gap-1 font-extrabold text-amber-400 text-xs bg-amber-950/60 px-2.5 py-1 rounded-lg border border-amber-800/80 cursor-pointer hover:bg-amber-900/60 transition-all"
+            >
+              <Coins size={14} />
+              <span>{profile?.coins ?? 0}</span>
+            </div>
+          </div>
+
+          {/* Turn Timer & Active Match Status */}
+          {game.status === 'playing' && timeRemaining !== null && (
+            <div className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-all ${
+              timeRemaining <= 10
+                ? 'bg-rose-950/80 border-rose-500/80 animate-pulse text-rose-200'
+                : 'bg-slate-800/80 border-slate-700 text-slate-200'
+            }`}>
+              <span className="text-xs font-bold flex items-center gap-1.5">
+                <Clock size={14} className={timeRemaining <= 10 ? 'text-rose-400 animate-spin' : 'text-indigo-400'} /> Turn Timer
+              </span>
+              <span className="font-mono font-black text-sm">{timeRemaining}s</span>
+            </div>
+          )}
+
           {/* Players List */}
           <div>
             <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">
@@ -384,7 +609,7 @@ export default function App() {
                       isCurrentTurn
                         ? 'bg-indigo-950/60 border-indigo-500/80 shadow-md shadow-indigo-900/20'
                         : 'bg-slate-800/60 border-slate-800'
-                    } ${!p.connected ? 'opacity-50' : ''}`}
+                    } ${!p.connected || p.surrendered ? 'opacity-50' : ''}`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="relative shrink-0">
@@ -395,9 +620,9 @@ export default function App() {
                           {p.name[0]?.toUpperCase() ?? '?'}
                         </div>
                         <span
-                          title={p.connected ? 'Connected' : 'Offline'}
+                          title={p.surrendered ? 'Surrendered' : p.connected ? 'Connected' : 'Offline'}
                           className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${
-                            p.connected ? 'bg-emerald-500' : 'bg-slate-500'
+                            p.surrendered ? 'bg-rose-500' : p.connected ? 'bg-emerald-500' : 'bg-slate-500'
                           }`}
                         />
                       </div>
@@ -407,7 +632,7 @@ export default function App() {
                         </span>
                         {game.status === 'playing' && (
                           <span className="text-[10px] text-slate-400">
-                            {p.handCount} card{p.handCount === 1 ? '' : 's'}{!p.connected ? ' · offline' : ''}
+                            {p.surrendered ? 'Surrendered' : `${p.handCount} card${p.handCount === 1 ? '' : 's'}${!p.connected ? ' · offline' : ''}`}
                           </span>
                         )}
                       </div>
@@ -445,6 +670,15 @@ export default function App() {
             </div>
           )}
 
+          {game.status === 'playing' && (
+            <button
+              onClick={() => setShowSurrenderModal(true)}
+              className="w-full bg-slate-800 hover:bg-rose-950/80 hover:border-rose-700 text-slate-300 hover:text-rose-300 font-bold py-2 rounded-lg transition-all border border-slate-700 flex items-center justify-center gap-1.5 text-xs cursor-pointer"
+            >
+              <Flag size={14} /> Surrender Match
+            </button>
+          )}
+
           {currentTurnDisconnected && (
             <div className="bg-amber-950/40 p-3 rounded-xl border border-amber-800/80 space-y-2">
               <p className="text-xs text-amber-300 flex items-center gap-1.5">
@@ -463,14 +697,14 @@ export default function App() {
             <div className="bg-amber-950/50 p-4 rounded-xl border border-amber-600/60 text-center space-y-3">
               <Trophy className="mx-auto text-amber-400 animate-bounce" size={36} />
               <div>
-                <h3 className="text-base font-black text-amber-300">Winner!</h3>
-                <p className="text-sm font-bold text-white mt-0.5">{game.winner}</p>
+                <h3 className="text-base font-black text-amber-300">Match Finished!</h3>
+                <p className="text-sm font-bold text-white mt-0.5">{game.winner} Won</p>
               </div>
               <button
-                onClick={restartGame}
+                onClick={handleRematch}
                 className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 text-xs cursor-pointer shadow-lg shadow-amber-500/20"
               >
-                <RotateCcw size={14} /> Play Again
+                <RotateCcw size={14} /> Request Rematch
               </button>
             </div>
           )}
@@ -505,6 +739,15 @@ export default function App() {
           </button>
         </div>
 
+        {/* Turn Timer on Mobile */}
+        {game.status === 'playing' && timeRemaining !== null && (
+          <div className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 ${
+            timeRemaining <= 10 ? 'bg-rose-950 text-rose-300 border border-rose-700 animate-pulse' : 'bg-slate-800 text-slate-300'
+          }`}>
+            <Clock size={11} /> {timeRemaining}s
+          </div>
+        )}
+
         {/* Players Turn Avatars */}
         <div className="flex items-center gap-1.5">
           {game.players.map((p, idx) => {
@@ -536,18 +779,19 @@ export default function App() {
             </button>
           )}
           {game.status === 'playing' && (
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-              isMyTurn ? 'bg-indigo-600 text-white animate-pulse' : 'bg-slate-800 text-slate-400'
-            }`}>
-              {isMyTurn ? 'Your Turn' : `${currentPlayer?.name}'s Turn`}
-            </span>
+            <button
+              onClick={() => setShowSurrenderModal(true)}
+              className="bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-300 text-[11px] font-bold px-2 py-1 rounded flex items-center gap-1"
+            >
+              <Flag size={12} /> Surrender
+            </button>
           )}
           {game.status === 'finished' && (
             <button
-              onClick={restartGame}
+              onClick={handleRematch}
               className="bg-amber-500 text-slate-950 font-black text-xs px-2.5 py-1 rounded"
             >
-              Restart
+              Rematch
             </button>
           )}
         </div>
@@ -636,6 +880,29 @@ export default function App() {
             )}
           </div>
         </div>
+
+        {/* 2-Second Undo Floating Banner */}
+        <AnimatePresence>
+          {isUndoAvailable && undoCountdown !== null && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.9 }}
+              className="absolute bottom-4 z-40 bg-slate-900/95 backdrop-blur-md border border-indigo-500/80 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 text-white"
+            >
+              <div className="flex items-center gap-2">
+                <Undo2 className="text-indigo-400" size={18} />
+                <span className="text-xs font-bold hidden sm:inline">Made a mistake?</span>
+              </div>
+              <button
+                onClick={handleUndoMove}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl transition-all shadow-lg shadow-indigo-600/40 flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Undo2 size={14} /> Undo Move ({undoCountdown}s)
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* ========================================================================= */}
