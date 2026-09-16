@@ -36,6 +36,74 @@ export interface Player {
   color: string;
   hand: Card[];
   connected: boolean;
+  surrendered?: boolean;
+}
+
+export type Coord = [number, number];
+
+export interface GameStats {
+  startTime: number;
+  endTime: number;
+  durationSeconds: number;
+  totalMoves: number;
+  sequencesCount: number;
+}
+
+export interface RewardBreakdown {
+  matchComplete: number;
+  victory: number;
+  sequences: number;
+  streakBonus: number;
+  totalEarned: number;
+}
+
+export interface MatchHistoryRecord {
+  matchId: string;
+  timestamp: number;
+  roomCode: string;
+  mode: string;
+  isTeam: boolean;
+  winningTeam?: string | null;
+  winnerName: string;
+  isWin: boolean;
+  sequencesCount: number;
+  durationSeconds: number;
+  coinsEarned: number;
+}
+
+export interface PlayerAchievement {
+  achievementId: string;
+  unlocked: boolean;
+  unlockedAt: number | null;
+  claimed: boolean;
+}
+
+export interface PlayerProfile {
+  playerId: string;
+  name: string;
+  coins: number;
+  totalGames: number;
+  wins: number;
+  losses: number;
+  currentWinStreak: number;
+  bestWinStreak: number;
+  totalSequences: number;
+  lastDailyClaim?: number; // epoch ms
+  dailyStreak?: number; // 0..7
+  matchHistory: MatchHistoryRecord[];
+  achievements: Record<string, PlayerAchievement>;
+}
+
+/** Undo snapshot stored on server to reverse moves */
+export interface UndoSnapshot {
+  board: BoardCell[][];
+  players: Player[];
+  turnIndex: number;
+  deck: Card[];
+  lastMove: LastMove | null;
+  winner: string | null;
+  status: GameStatus;
+  gameStats: GameStats | null;
 }
 
 /** Server-side, authoritative game state. Never sent to clients as-is. */
@@ -48,6 +116,22 @@ export interface GameState {
   status: GameStatus;
   winner: string | null;
   lastMove: LastMove | null;
+  winningSequences?: Coord[][];
+  winningCells?: Coord[];
+  isTeamGame?: boolean;
+  winningTeam?: string | null;
+  winningPlayerNames?: string[];
+  gameStats?: GameStats | null;
+  startTime?: number;
+  totalMoves?: number;
+  rematchVotes?: string[];
+  startingTurnIndex?: number;
+  turnDeadline?: number | null;
+  turnDurationSeconds?: number;
+  undoAvailableForPlayerId?: string | null;
+  undoDeadline?: number | null;
+  undoSnapshot?: UndoSnapshot | null;
+  rewardBreakdowns?: Record<string, RewardBreakdown>;
 }
 
 /**
@@ -62,6 +146,7 @@ export interface ClientPlayer {
   handCount: number;
   hand: Card[];
   connected: boolean;
+  surrendered?: boolean;
 }
 
 /** Redacted, per-recipient view of the game. This is what actually goes over the wire. */
@@ -75,6 +160,18 @@ export interface ClientGameState {
   winner: string | null;
   lastMove: LastMove | null;
   youPlayerId: string;
+  winningSequences?: Coord[][];
+  winningCells?: Coord[];
+  isTeamGame?: boolean;
+  winningTeam?: string | null;
+  winningPlayerNames?: string[];
+  gameStats?: GameStats | null;
+  rematchVotes?: string[];
+  turnDeadline?: number | null;
+  turnDurationSeconds?: number;
+  undoAvailableForPlayerId?: string | null;
+  undoDeadline?: number | null;
+  rewardBreakdown?: RewardBreakdown | null;
 }
 
 export const PLAYER_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04'] as const;
