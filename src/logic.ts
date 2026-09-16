@@ -30,6 +30,18 @@ export function toClientState(game: GameState, forPlayerId: string): ClientGameS
     winner: game.winner,
     lastMove: game.lastMove,
     youPlayerId: forPlayerId,
+    winningSequences: game.winningSequences,
+    winningCells: game.winningCells,
+    isTeamGame: game.isTeamGame,
+    winningTeam: game.winningTeam,
+    winningPlayerNames: game.winningPlayerNames,
+    gameStats: game.gameStats,
+    rematchVotes: game.rematchVotes,
+    turnDeadline: game.turnDeadline,
+    turnDurationSeconds: game.turnDurationSeconds ?? 30,
+    undoAvailableForPlayerId: game.undoAvailableForPlayerId,
+    undoDeadline: game.undoDeadline,
+    rewardBreakdown: game.rewardBreakdowns?.[forPlayerId] ?? null,
     players: game.players.map(p => ({
       playerId: p.playerId,
       name: p.name,
@@ -37,6 +49,7 @@ export function toClientState(game: GameState, forPlayerId: string): ClientGameS
       handCount: p.hand.length,
       hand: p.playerId === forPlayerId ? p.hand : [],
       connected: p.connected,
+      surrendered: p.surrendered,
     })),
   };
 }
@@ -88,15 +101,9 @@ function findRuns(board: BoardCell[][], color: string, dr: number, dc: number): 
  * Sequence's actual rule: two sequences may share at most one chip. Packed
  * end-to-end along a straight run of N chips, that yields
  * floor((N - 5) / 4) + 1 independent 5-chip sequences (N=5 -> 1, N=6..8 -> 1,
- * N=9 -> 2, N=13 -> 3, ...). The previous implementation instead counted
- * every overlapping 5-cell window as its own sequence, so 6 chips in a row
- * registered as 2-3 sequences instead of 1 — letting a player win instantly
- * off a single line. This computes the correct count and reports only the
- * cells actually used by a counted sequence (so "extra" chips on a run of 6
- * remain unlocked and can still be built on to earn a second sequence later,
- * just like the physical board game).
+ * N=9 -> 2, N=13 -> 3, ...).
  */
-export function checkSequences(board: BoardCell[][], color: string): { count: number; cells: Coord[] } {
+export function checkSequences(board: BoardCell[][], color: string): { count: number; cells: Coord[]; sequences: Coord[][] } {
   const directions: Coord[] = [
     [0, 1],  // horizontal
     [1, 0],  // vertical
@@ -106,6 +113,7 @@ export function checkSequences(board: BoardCell[][], color: string): { count: nu
 
   let totalCount = 0;
   const usedCells = new Set<string>();
+  const sequences: Coord[][] = [];
 
   for (const [dr, dc] of directions) {
     const runs = findRuns(board, color, dr, dc);
@@ -114,10 +122,13 @@ export function checkSequences(board: BoardCell[][], color: string): { count: nu
       const seqCount = 1 + Math.floor((n - 5) / 4);
       totalCount += seqCount;
       for (let k = 0; k < seqCount; k++) {
+        const seq: Coord[] = [];
         for (let i = 0; i < 5; i++) {
           const [r, c] = run[4 * k + i];
+          seq.push([r, c]);
           usedCells.add(`${r},${c}`);
         }
+        sequences.push(seq);
       }
     }
   }
@@ -127,5 +138,5 @@ export function checkSequences(board: BoardCell[][], color: string): { count: nu
     return [r, c] as Coord;
   });
 
-  return { count: totalCount, cells };
+  return { count: totalCount, cells, sequences };
 }
