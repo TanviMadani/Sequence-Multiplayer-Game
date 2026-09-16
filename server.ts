@@ -370,11 +370,11 @@ async function startServer() {
             return;
           }
 
-          const oneDayMs = 24 * 60 * 60 * 1000;
-          if (todayMidnight - lastClaimMidnight === oneDayMs) {
+          const diffDays = Math.round((todayMidnight - lastClaimMidnight) / (24 * 60 * 60 * 1000));
+          if (diffDays === 1) {
             profile.dailyStreak = ((profile.dailyStreak ?? 0) % 7) + 1;
           } else {
-            profile.dailyStreak = 1; // Missed a day -> reset to Day 1
+            profile.dailyStreak = 1; // Missed 1+ days -> reset to Day 1
           }
         } else {
           profile.dailyStreak = 1;
@@ -578,7 +578,14 @@ async function startServer() {
 
         const snap = game.undoSnapshot;
         game.board = snap.board;
-        game.players = snap.players;
+        // Preserve live player socket and connection status while restoring hands and surrender state
+        for (const snapP of snap.players) {
+          const currentP = game.players.find(p => p.playerId === snapP.playerId);
+          if (currentP) {
+            currentP.hand = snapP.hand;
+            currentP.surrendered = snapP.surrendered;
+          }
+        }
         game.turnIndex = snap.turnIndex;
         game.deck = snap.deck;
         game.lastMove = snap.lastMove;
@@ -700,7 +707,10 @@ async function startServer() {
         const roomId = sanitizeRoomId(roomIdRaw);
         if (!roomId) return;
         const game = games.get(roomId);
-        if (!game) return;
+        if (!game || game.status !== "finished") return;
+
+        const meta = socketMeta.get(socket.id);
+        if (!meta || meta.roomId !== roomId) return;
 
         executeRematchStart(game);
         broadcastGame(roomId);
