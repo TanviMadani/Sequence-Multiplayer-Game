@@ -7,12 +7,12 @@
     "node": ">=18.18"
   },
   "scripts": {
-    "dev": "tsx server.ts",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "tsx server/server.ts",
+    "build": "tsc --noEmit && vite build --config client/vite.config.ts",
+    "preview": "vite preview --config client/vite.config.ts",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "start": "tsx server.ts"
+    "start": "NODE_ENV=production tsx server/server.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",

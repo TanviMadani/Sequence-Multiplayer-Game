@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Crown, Sparkles } from 'lucide-react';
-import { Coord } from '../types';
+import { Crown } from 'lucide-react';
+import { Coord } from '@shared/types';
 
 export function isWinningCell(r: number, c: number, winningCells?: Coord[]): boolean {
   if (!winningCells) return false;

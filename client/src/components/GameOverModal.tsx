@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trophy, RotateCcw, Home, Eye, Play, Sparkles, Clock, MoveHorizontal, Layers, Award } from 'lucide-react';
-import { ClientGameState } from '../types';
+import { Trophy, RotateCcw, Home, Eye, Play, Sparkles, Clock, MoveHorizontal, Layers, Award, TrendingUp, TrendingDown } from 'lucide-react';
+import { ClientGameState } from '@shared/types';
+import { RankBadge } from './RankBadge';
 
 interface GameOverModalProps {
   game: ClientGameState;
@@ -32,13 +33,8 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
       : 'Team Sequence Master'
     : 'Sequence Champion';
 
-  const winningPlayers = game.players.filter(p =>
-    isTeam
-      ? game.winningPlayerNames?.includes(p.name)
-      : p.name === game.winner
-  );
-
   const stats = game.gameStats;
+  const ratingDelta = game.rewardBreakdown?.ratingDelta || game.ratingDeltas?.[game.youPlayerId];
 
   return (
     <>
@@ -103,9 +99,32 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                 {winnerTitle} Wins!
               </h2>
 
-              <p className="text-xs sm:text-sm text-slate-400 font-medium mb-5">
+              <p className="text-xs sm:text-sm text-slate-400 font-medium mb-4">
                 {winnerSubtitle}
               </p>
+
+              {/* Feature 22: Ranked Rating Delta Banner */}
+              {game.isRanked && ratingDelta && (
+                <div className={`w-full mb-5 p-3 rounded-2xl border flex items-center justify-between font-extrabold text-sm ${
+                  ratingDelta.delta >= 0
+                    ? 'bg-emerald-950/80 border-emerald-500/80 text-emerald-300 shadow-lg shadow-emerald-900/30'
+                    : 'bg-rose-950/80 border-rose-500/80 text-rose-300 shadow-lg shadow-rose-900/30'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {ratingDelta.delta >= 0 ? <TrendingUp size={20} className="text-emerald-400" /> : <TrendingDown size={20} className="text-rose-400" />}
+                    <span className="text-xs text-slate-300 uppercase tracking-wider font-bold">Ranked Elo</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-mono text-base">
+                    <span className="text-slate-400 text-xs">{ratingDelta.oldRating} →</span>
+                    <span className="text-white font-black">{ratingDelta.newRating}</span>
+                    <span className={`px-2 py-0.5 rounded-lg text-xs font-black ${
+                      ratingDelta.delta >= 0 ? 'bg-emerald-500 text-slate-950' : 'bg-rose-500 text-white'
+                    }`}>
+                      {ratingDelta.delta >= 0 ? `+${ratingDelta.delta}` : ratingDelta.delta}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Winning Player Avatars & Rematch Status */}
               {game.players.length > 0 && (
@@ -130,6 +149,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                           {p.name[0]?.toUpperCase()}
                         </div>
                         <span className="text-xs font-bold text-slate-200">{p.name}</span>
+                        {!p.isBot && <RankBadge rating={p.rankedRating} size="xs" showIcon showName={false} />}
                         {votedRematch && (
                           <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800 flex items-center gap-0.5">
                             ✓ Ready
@@ -182,7 +202,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 
               {/* Match Rewards Breakdown */}
               {game.rewardBreakdown && (
-                <div className="w-full bg-gradient-to-r from-amber-950/40 via-slate-900 to-yellow-950/40 rounded-2xl p-3.5 border border-amber-500/30 mb-6 text-left space-y-1.5 text-xs font-semibold">
+                <div className="w-full bg-gradient-to-r from-amber-950/40 via-slate-900 to-indigo-950/40 rounded-2xl p-3.5 border border-amber-500/30 mb-6 text-left space-y-1.5 text-xs font-semibold">
                   <div className="flex items-center justify-between text-slate-300">
                     <span>Match Completed:</span>
                     <span className="font-mono font-bold text-amber-300">+{game.rewardBreakdown.matchComplete} coins</span>
@@ -205,53 +225,77 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                       <span className="font-mono font-bold text-amber-300">+{game.rewardBreakdown.streakBonus} coins</span>
                     </div>
                   )}
+                  {game.rewardBreakdown.xpEarned && (
+                    <div className="flex items-center justify-between text-indigo-300">
+                      <span>XP Earned:</span>
+                      <span className="font-mono font-bold text-indigo-300">+{game.rewardBreakdown.xpEarned} XP</span>
+                    </div>
+                  )}
+
+                  {game.rewardBreakdown.levelUp?.didLevelUp && (
+                    <div className="mt-2 p-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl text-white text-center font-black text-xs flex items-center justify-center gap-1.5 shadow-md">
+                      <Sparkles size={14} /> LEVEL UP! Level {game.rewardBreakdown.levelUp.oldLevel} → Level {game.rewardBreakdown.levelUp.newLevel} (+{game.rewardBreakdown.levelUp.bonusCoins} Bonus Coins)
+                    </div>
+                  )}
+
                   <div className="pt-1.5 border-t border-amber-500/20 flex items-center justify-between font-black text-amber-300 text-sm">
-                    <span>Total Earned:</span>
-                    <span className="font-mono text-base">+{game.rewardBreakdown.totalEarned} coins</span>
+                    <span>Total Coins Earned:</span>
+                    <span className="font-mono text-base">+{game.rewardBreakdown.totalEarned + (game.rewardBreakdown.levelUp?.bonusCoins || 0)} coins</span>
                   </div>
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className="w-full space-y-2.5">
-                {(() => {
-                  const connectedCount = game.players.filter(p => p.connected).length;
-                  const voteCount = game.rematchVotes?.length ?? 0;
-                  const hasVoted = game.rematchVotes?.includes(game.youPlayerId);
+              {!game.isSpectator && (
+                <div className="w-full space-y-2.5">
+                  {(() => {
+                    const connectedCount = game.players.filter(p => p.connected && !p.isBot).length;
+                    const voteCount = game.rematchVotes?.length ?? 0;
+                    const hasVoted = game.rematchVotes?.includes(game.youPlayerId);
 
-                  return (
+                    return (
+                      <button
+                        onClick={onRematch}
+                        className={`w-full font-black py-3.5 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm cursor-pointer border ${
+                          hasVoted
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 shadow-emerald-900/30'
+                            : 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 text-slate-950 border-amber-300 shadow-amber-500/20'
+                        }`}
+                      >
+                        <RotateCcw size={18} />
+                        {hasVoted
+                          ? `✓ Rematch Ready (${voteCount}/${connectedCount})`
+                          : `Request Rematch (${voteCount}/${connectedCount} Ready)`}
+                      </button>
+                    );
+                  })()}
+
+                  <div className="grid grid-cols-2 gap-2.5">
                     <button
-                      onClick={onRematch}
-                      className={`w-full font-black py-3.5 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm cursor-pointer border ${
-                        hasVoted
-                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 shadow-emerald-900/30'
-                          : 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 text-slate-950 border-amber-300 shadow-amber-500/20'
-                      }`}
+                      onClick={onNewGame}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2 text-xs cursor-pointer"
                     >
-                      <RotateCcw size={18} />
-                      {hasVoted
-                        ? `✓ Rematch Ready (${voteCount}/${connectedCount})`
-                        : `Request Rematch (${voteCount}/${connectedCount} Ready)`}
+                      <Play size={16} /> New Game
                     </button>
-                  );
-                })()}
 
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    onClick={onNewGame}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2 text-xs cursor-pointer"
-                  >
-                    <Play size={16} /> New Game
-                  </button>
-
-                  <button
-                    onClick={onLeaveLobby}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold py-3 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2 text-xs cursor-pointer"
-                  >
-                    <Home size={16} /> Back to Home
-                  </button>
+                    <button
+                      onClick={onLeaveLobby}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold py-3 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2 text-xs cursor-pointer"
+                    >
+                      <Home size={16} /> Back to Home
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {game.isSpectator && (
+                <button
+                  onClick={onLeaveLobby}
+                  className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3.5 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2 text-sm cursor-pointer"
+                >
+                  <Home size={18} /> Exit Spectator Mode
+                </button>
+              )}
             </motion.div>
           </div>
         )}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, Sparkles } from 'lucide-react';
-import { AchievementDef } from '../constants/rewards';
+import { AchievementDef } from '@shared/constants/rewards';
 
 interface AchievementToastProps {
   achievement: AchievementDef | null;
