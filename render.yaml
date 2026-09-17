@@ -5,7 +5,7 @@ services:
     repo: https://github.com/TanviMadani/Sequence-Multiplayer-Game
     branch: main
     rootDir: .
-    plan: starter
+    plan: free
     healthCheckPath: /
     autoDeploy: yes
     buildCommand: npm ci && npm run build
@@ -13,10 +13,5 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        fromService:
-          type: web
-          name: sequence-multiplayer
-          property: host
       - key: CORS_ORIGIN
         value: '*'
